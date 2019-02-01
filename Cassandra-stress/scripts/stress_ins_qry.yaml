@@ -1,0 +1,40 @@
+#run with for i in one two three ; do cassandra-stress user profile=/root/scripts/voorbeeld2.yaml cl=${i} no-warmup ops\(insert=1\) n=1000000 -mode native cql3 user=xxx password=xxx -rate threads=50 -node `hostname` ; done | grep "Op rate "
+
+
+keyspace: stresscql
+
+keyspace_definition: |
+  CREATE KEYSPACE stresscql WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': '2', 'dc2': '2'}  AND durable_writes = true;
+
+
+table: insanitytest
+
+table_definition: |
+  CREATE TABLE insanitytest (
+        mailboxid text,
+        alias text,
+        PRIMARY KEY((mailboxid),alias)
+  ) WITH COMPACT STORAGE
+    AND compaction = { 'class':'LeveledCompactionStrategy' }
+    AND comment='A table of many types to test wide rows'
+
+columnspec:
+  - name: mailboxid
+    size: uniform(1..10)
+    population: uniform(1..10000)
+  - name: alias
+    cluster: uniform(20..40)
+
+insert:
+  partitions: uniform(1..50)
+  batchtype: LOGGED
+  select: uniform(1..10)/10
+
+queries:
+   simple1:
+      cql: select mailboxid from insanitytest where mailboxid = ? and alias = ?
+      fields: samerow
+   range1:
+      cql: select * from insanitytest where mailboxid = ? and alias = ?
+      fields: multirow
+
